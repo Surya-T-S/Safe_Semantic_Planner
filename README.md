@@ -28,14 +28,17 @@
 ## Quick Execution
 
 ```bash
-# 1. Compile everything
-build.bat
+# 1. Compile C++ engine
+.\build.bat
 
-# 2. Run test cases & demonstrations
+# 2. Run automated verification suite (14/14 checks)
+.\build\test_planner.exe
+
+# 3. Run full console demonstration (TC1-TC6 + 4 real-world scenarios)
 .\build\safe_planner.exe
 
-# 3. Run automated verification suite (14/14 checks)
-.\build\test_planner.exe
+# 4. Launch interactive visual demonstration in browser
+start demo\index.html
 ```
 
 ---
