@@ -616,15 +616,24 @@ function renderPhaseButtons() {
     }
 }
 
+let loopProgress = 0; // 0 to 1 for the moving dot along the path
+
 function startAnim() {
     if (animId) cancelAnimationFrame(animId);
-    animProgress = 0; animate();
+    animProgress = 0;
+    loopProgress = 0;
+    animate();
 }
 
 function animate() {
-    animProgress = Math.min(animProgress + 0.018, 1.0);
+    if (animProgress < 1.0) {
+        animProgress = Math.min(animProgress + 0.02, 1.0);
+    }
+    // Continuous loop for traveling dot along the path
+    loopProgress = (loopProgress + 0.007) % 1.0;
+
     render();
-    if (animProgress < 1.0) animId = requestAnimationFrame(animate);
+    animId = requestAnimationFrame(animate);
 }
 
 function ease(t) { return t < 0.5 ? 2*t*t : -1+(4-2*t)*t; }
@@ -667,6 +676,42 @@ function render() {
         const np = isOnPath ? ease(Math.min(1, animProgress * ph.path.length - idx * 0.7)) : 1;
         drawState(ctx, s, isBad, isOnPath, Math.max(0, np));
     });
+
+    // Draw continuous moving dot along the path
+    if (ph.path && ph.path.length > 1) {
+        drawMovingDot(ctx, ph);
+    }
+}
+
+function drawMovingDot(ctx, ph) {
+    const totalSegments = ph.path.length - 1;
+    const currentSegmentFloat = loopProgress * totalSegments;
+    const segIndex = Math.min(Math.floor(currentSegmentFloat), totalSegments - 1);
+    const segT = currentSegmentFloat - segIndex;
+
+    const fromId = ph.path[segIndex];
+    const toId = ph.path[segIndex + 1];
+    const from = ph.states.find(s => s.id === fromId);
+    const to = ph.states.find(s => s.id === toId);
+
+    if (!from || !to) return;
+
+    const dotX = from.x + (to.x - from.x) * segT;
+    const dotY = from.y + (to.y - from.y) * segT;
+
+    ctx.save();
+    // Outer halo
+    ctx.beginPath();
+    ctx.arc(dotX, dotY, 9, 0, Math.PI * 2);
+    ctx.fillStyle = "rgba(0, 0, 0, 0.15)";
+    ctx.fill();
+
+    // Solid core dot
+    ctx.beginPath();
+    ctx.arc(dotX, dotY, 5, 0, Math.PI * 2);
+    ctx.fillStyle = "#111111";
+    ctx.fill();
+    ctx.restore();
 }
 
 function drawEdge(ctx, from, to, edge, isPath) {

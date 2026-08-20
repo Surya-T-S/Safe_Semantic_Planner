@@ -1,6 +1,7 @@
 # Safe Semantic Planner — User Manual
 
 ## PCCST503 Machine Learning — Assignment
+**Author:** Surya T S  
 
 ---
 

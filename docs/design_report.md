@@ -2,7 +2,7 @@
 
 ## PCCST503 Machine Learning — Assignment
 
-**Author:** Student  
+**Author:** Surya T S  
 **Algorithm:** D* Lite (Koenig & Likhachev, 2002)  
 **Language:** C++14  
 **Date:** August 2026
