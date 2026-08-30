@@ -1,7 +1,7 @@
 # Safe Semantic Planner
 
 **Author:** Surya T S  
-**University Registration Number:**TCR24CS069
+**University Registration Number:** TCR24CS069  
 **Course:** PCCST503 (Machine Learning)  
 **Algorithm:** D* Lite (Incremental Heuristic Search)  
 **Language:** Modern C++ (C++14)  
