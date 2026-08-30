@@ -124,17 +124,18 @@ ax4.text(0.02, 0.98, card_content, transform=ax4.transAxes, fontsize=8.8,
 
 fig.suptitle('Safe Semantic Planner — Quantitative Experimental Evaluation', fontsize=13, fontweight='bold', y=0.97)
 plt.savefig('docs/images/benchmark_metrics.png', dpi=300, facecolor='#ffffff')
-plt.close()
 print("Saved: docs/images/benchmark_metrics.png")
 
 # ==============================================================================
 # 2. FIGURE: SCENARIO TRAJECTORY PLOTS (planner_scenarios.png)
 # ==============================================================================
-fig, axs = plt.subplots(2, 2, figsize=(13, 9.5), dpi=300)
+fig, axs = plt.subplots(2, 2, figsize=(15, 11), dpi=300)
 fig.patch.set_facecolor('#ffffff')
+plt.subplots_adjust(hspace=0.38, wspace=0.22, left=0.06, right=0.96, top=0.92, bottom=0.05)
 
-def render_scenario(ax, title, subtitle, states, edges, bad_nodes, path_nodes, start_node, goal_node, xlim, ylim):
-    ax.set_title(f"{title}\n{subtitle}", fontsize=10.5, fontweight='bold', pad=8, loc='left', color='#111111')
+def render_scenario(ax, title, subtitle, states, edges, bad_nodes, path_nodes, start_node, goal_node, xlim, ylim, show_all_edge_costs=True):
+    ax.set_title(title, fontsize=11, fontweight='bold', pad=16, loc='left', color='#111111')
+    ax.text(0.0, 1.02, subtitle, transform=ax.transAxes, fontsize=8.5, color='#555555', va='bottom', ha='left')
     ax.set_xlim(xlim)
     ax.set_ylim(ylim)
     ax.set_aspect('equal')
@@ -144,13 +145,13 @@ def render_scenario(ax, title, subtitle, states, edges, bad_nodes, path_nodes, s
     
     # 1. Draw Edges
     for u, v, cost_val, is_avail in edges:
-        p1 = np.array(states[u])
-        p2 = np.array(states[v])
+        p1 = np.array(states[u], dtype=float)
+        p2 = np.array(states[v], dtype=float)
         v_diff = p2 - p1
         dist = np.linalg.norm(v_diff)
         if dist < 1e-6: continue
         u_dir = v_diff / dist
-        r = 0.28
+        r = 0.36
         p_start = p1 + u_dir * r
         p_end = p2 - u_dir * r
         
@@ -158,89 +159,97 @@ def render_scenario(ax, title, subtitle, states, edges, bad_nodes, path_nodes, s
         
         if not is_avail:
             ax.annotate('', xy=p_end, xytext=p_start,
-                        arrowprops=dict(arrowstyle='->', color='#888888', lw=1.2, linestyle='--', mutation_scale=10))
-            mid = (p1 + p2) / 2 + np.array([-u_dir[1], u_dir[0]]) * 0.16
-            ax.text(mid[0], mid[1], 'X (blocked)', color='#555555', fontsize=7, fontweight='bold', ha='center', va='center')
+                        arrowprops=dict(arrowstyle='->', color='#888888', lw=1.5, linestyle='--', mutation_scale=12))
+            mid = (p1 + p2) / 2 + np.array([-u_dir[1], u_dir[0]]) * 0.22
+            ax.text(mid[0], mid[1], 'X (Blocked)', color='#333333', fontsize=7.5, fontweight='bold', ha='center', va='center',
+                    bbox=dict(boxstyle='square,pad=0.2', facecolor='#ffffff', edgecolor='#aaaaaa', lw=0.8, alpha=0.9))
         elif is_in_path:
             ax.annotate('', xy=p_end, xytext=p_start,
-                        arrowprops=dict(arrowstyle='->', color='#111111', lw=2.6, mutation_scale=14))
-            mid = (p1 + p2) / 2 + np.array([-u_dir[1], u_dir[0]]) * 0.14
-            ax.text(mid[0], mid[1], f'c={cost_val}', color='#111111', fontsize=7.5, fontweight='bold', ha='center', va='center')
+                        arrowprops=dict(arrowstyle='->', color='#111111', lw=2.8, mutation_scale=16))
+            if show_all_edge_costs:
+                mid = (p1 + p2) / 2 + np.array([-u_dir[1], u_dir[0]]) * 0.20
+                ax.text(mid[0], mid[1], f'c={cost_val}', color='#111111', fontsize=7.5, fontweight='bold', ha='center', va='center',
+                        bbox=dict(boxstyle='round,pad=0.15', facecolor='#ffffff', edgecolor='none', alpha=0.85))
         else:
             ax.annotate('', xy=p_end, xytext=p_start,
-                        arrowprops=dict(arrowstyle='->', color='#cccccc', lw=1.0, mutation_scale=9))
-            mid = (p1 + p2) / 2 + np.array([-u_dir[1], u_dir[0]]) * 0.14
-            ax.text(mid[0], mid[1], f'c={cost_val}', color='#888888', fontsize=7, ha='center', va='center')
+                        arrowprops=dict(arrowstyle='->', color='#cccccc', lw=1.2, mutation_scale=10))
+            if show_all_edge_costs:
+                mid = (p1 + p2) / 2 + np.array([-u_dir[1], u_dir[0]]) * 0.18
+                ax.text(mid[0], mid[1], f'c={cost_val}', color='#888888', fontsize=7, ha='center', va='center',
+                        bbox=dict(boxstyle='round,pad=0.15', facecolor='#ffffff', edgecolor='none', alpha=0.85))
 
     # 2. Draw Nodes
     for sid, pos in states.items():
-        pos = np.array(pos)
+        pos = np.array(pos, dtype=float)
         is_bad = sid in bad_nodes
         is_start = (sid == start_node)
         is_goal = (sid == goal_node)
         is_path = sid in path_nodes
         
         if is_bad:
-            # Danger radius
-            zone = patches.Circle(pos, 0.6, facecolor='#f5f5f5', edgecolor='#888888', linestyle=':', linewidth=1.2)
+            zone = patches.Circle(pos, 0.72, facecolor='#f5f5f5', edgecolor='#666666', linestyle=':', linewidth=1.2, zorder=3)
             ax.add_patch(zone)
-            node = patches.Circle(pos, 0.26, facecolor='#e0e0e0', edgecolor='#333333', linewidth=1.5)
+            node = patches.Circle(pos, 0.32, facecolor='#e0e0e0', edgecolor='#222222', linewidth=1.5, zorder=4)
             ax.add_patch(node)
-            ax.text(pos[0], pos[1], f'{sid}\n[BAD]', ha='center', va='center', fontsize=7, fontweight='bold', color='#111111')
+            ax.text(pos[0], pos[1], f'{sid}\n[BAD]', ha='center', va='center', fontsize=7.5, fontweight='bold', color='#111111', zorder=5)
         elif is_start:
-            node = patches.Circle(pos, 0.26, facecolor='#111111', edgecolor='#111111', linewidth=1.5)
+            node = patches.Circle(pos, 0.32, facecolor='#111111', edgecolor='#111111', linewidth=1.5, zorder=4)
             ax.add_patch(node)
-            ax.text(pos[0], pos[1], f'S({sid})', ha='center', va='center', fontsize=7.5, fontweight='bold', color='#ffffff')
+            ax.text(pos[0], pos[1], f'S({sid})', ha='center', va='center', fontsize=8, fontweight='bold', color='#ffffff', zorder=5)
         elif is_goal:
-            node_outer = patches.Circle(pos, 0.28, facecolor='#ffffff', edgecolor='#111111', linewidth=2.0)
-            node_inner = patches.Circle(pos, 0.19, facecolor='#ffffff', edgecolor='#111111', linewidth=1.2)
+            node_outer = patches.Circle(pos, 0.34, facecolor='#ffffff', edgecolor='#111111', linewidth=2.0, zorder=4)
+            node_inner = patches.Circle(pos, 0.23, facecolor='#ffffff', edgecolor='#111111', linewidth=1.2, zorder=5)
             ax.add_patch(node_outer)
             ax.add_patch(node_inner)
-            ax.text(pos[0], pos[1], f'G({sid})', ha='center', va='center', fontsize=7.5, fontweight='bold', color='#111111')
+            ax.text(pos[0], pos[1], f'G({sid})', ha='center', va='center', fontsize=8, fontweight='bold', color='#111111', zorder=6)
         else:
             fc = '#ffffff' if not is_path else '#f0f0f0'
             ec = '#111111' if is_path else '#999999'
-            lw = 2.0 if is_path else 1.0
-            node = patches.Circle(pos, 0.25, facecolor=fc, edgecolor=ec, linewidth=lw)
+            lw = 2.0 if is_path else 1.2
+            node = patches.Circle(pos, 0.30, facecolor=fc, edgecolor=ec, linewidth=lw, zorder=4)
             ax.add_patch(node)
-            ax.text(pos[0], pos[1], f'{sid}', ha='center', va='center', fontsize=8, fontweight='bold', color='#111111')
+            ax.text(pos[0], pos[1], f'{sid}', ha='center', va='center', fontsize=8.5, fontweight='bold', color='#111111', zorder=5)
 
-# Panel 1: TC2 Bad State Avoidance
-st_tc2 = {0: (0.0, 0.0), 1: (1.4, 0.9), 2: (2.8, 0.9), 3: (1.4, -0.9), 5: (2.8, -0.9), 4: (4.2, 0.0)}
+# Panel 1: TC2 Bad State Avoidance (Widely Spaced)
+st_tc2 = {0: (0.0, 0.0), 1: (2.0, 1.4), 2: (4.0, 1.4), 3: (2.0, -1.4), 5: (4.0, -1.4), 4: (6.0, 0.0)}
 ed_tc2 = [(0,1,1.0,True), (1,2,1.0,True), (2,4,1.0,True), (0,3,1.0,True), (3,5,1.0,True), (5,4,1.0,True)]
-render_scenario(axs[0, 0], "1. TC2: Strict Hazard Avoidance", "Safe trajectory 0 -> 3 -> 5 -> 4 bypasses bad state 2",
-                st_tc2, ed_tc2, [2], [0, 3, 5, 4], 0, 4, (-0.5, 4.8), (-1.6, 1.6))
+render_scenario(axs[0, 0], "Scenario 1 — Strict Hazard Avoidance (TC2)",
+                "Safe trajectory: S(0) -> 3 -> 5 -> G(4)  |  Total Cost = 3.0, Avoids Bad State 2",
+                st_tc2, ed_tc2, [2], [0, 3, 5, 4], 0, 4, (-0.8, 6.8), (-2.2, 2.2))
 
-# Panel 2: TC4 Dynamic Edge Replanning
-st_tc4 = {0: (0.0, 0.0), 1: (1.8, 0.9), 2: (3.8, 0.0), 3: (1.4, -0.9), 4: (2.6, -0.9)}
+# Panel 2: TC4 Dynamic Edge Replanning (Widely Spaced)
+st_tc4 = {0: (0.0, 0.0), 1: (2.4, 1.4), 2: (5.4, 0.0), 3: (2.0, -1.4), 4: (3.8, -1.4)}
 ed_tc4 = [(0,1,1.0,True), (1,2,1.0,False), (0,3,1.5,True), (3,4,1.5,True), (4,2,1.5,True)]
-render_scenario(axs[0, 1], "2. TC4: Dynamic Edge Closure & Rerouting", "Edge 1->2 breaks at runtime; replans via 0 -> 3 -> 4 -> 2",
-                st_tc4, ed_tc4, [], [0, 3, 4, 2], 0, 2, (-0.5, 4.4), (-1.6, 1.6))
+render_scenario(axs[0, 1], "Scenario 2 — Dynamic Edge Failure & Detour (TC4)",
+                "Transition 1->2 blocked at runtime  |  Replanned Route: S(0) -> 3 -> 4 -> G(2) (Cost=4.5)",
+                st_tc4, ed_tc4, [], [0, 3, 4, 2], 0, 2, (-0.8, 6.2), (-2.2, 2.2))
 
 # Panel 3: Hospital Weights Tradeoff (Demo D)
-st_hosp = {0: (0.0, 0.0), 1: (1.8, 0.0), 4: (1.8, 0.35), 3: (3.8, 0.0), 2: (1.0, -1.4), 5: (2.8, -1.4)}
+st_hosp = {0: (0.0, 0.0), 1: (2.4, 0.7), 4: (2.4, 2.2), 3: (5.4, 0.0), 2: (1.8, -1.6), 5: (3.8, -1.6)}
 ed_hosp = [(0,1,1.0,True), (1,3,1.0,True), (0,2,2.0,True), (2,5,1.0,True), (5,3,1.0,True)]
-render_scenario(axs[1, 0], "3. Demo D: Multi-Objective Weight Tradeoff", "High safety weight (gamma=3.0) rejects close-by 0->1->3 for safe 0->2->5->3",
-                st_hosp, ed_hosp, [4], [0, 2, 5, 3], 0, 3, (-0.5, 4.4), (-2.0, 1.2))
+render_scenario(axs[1, 0], "Scenario 3 — Multi-Objective Weight Tradeoff (Hospital Demo)",
+                "High safety weight (gamma=3.0) rejects close path 0->1->3 for safe 0->2->5->3 (Clearance D_min=2.01)",
+                st_hosp, ed_hosp, [4], [0, 2, 5, 3], 0, 3, (-0.8, 6.2), (-2.4, 3.0))
 
 # Panel 4: Warehouse Grid Multi-Hazard Navigation (Demo B)
 st_w = {
-    0: (0, 2), 1: (1, 2), 2: (2, 2), 3: (3, 2), 4: (4, 2),
-    5: (0, 1), 6: (1, 1), 7: (2, 1), 8: (3, 1), 9: (4, 1),
-    10: (0, 0), 11: (1, 0), 12: (2, 0), 13: (3, 0), 14: (4, 0)
+    0: (0.0, 2.6), 1: (1.5, 2.6), 2: (3.0, 2.6), 3: (4.5, 2.6), 4: (6.0, 2.6),
+    5: (0.0, 1.3), 6: (1.5, 1.3), 7: (3.0, 1.3), 8: (4.5, 1.3), 9: (6.0, 1.3),
+    10: (0.0, 0.0), 11: (1.5, 0.0), 12: (3.0, 0.0), 13: (4.5, 0.0), 14: (6.0, 0.0)
 }
 ed_w = [
-    (0,1,1,True), (1,2,1,True), (2,3,1,True), (3,4,1,True),
-    (0,5,1,True), (5,10,1,True), (10,11,1,True), (11,12,1,True),
-    (12,13,1,True), (13,14,1,True), (14,9,1,True), (9,4,1,True),
-    (5,6,1,True), (6,7,1,True), (7,8,1,True), (8,9,1,True),
-    (1,6,1,True), (6,11,1,True), (3,8,1,True), (8,13,1,True)
+    (0,1,1.0,True), (1,2,1.0,True), (2,3,1.0,True), (3,4,1.0,True),
+    (0,5,1.0,True), (5,10,1.0,True), (10,11,1.0,True), (11,12,1.0,True),
+    (12,13,1.0,True), (13,14,1.0,True), (14,9,1.0,True), (9,4,1.0,True),
+    (5,6,1.0,True), (6,7,1.0,True), (7,8,1.0,True), (8,9,1.0,True),
+    (1,6,1.0,True), (6,11,1.0,True), (3,8,1.0,True), (8,13,1.0,True)
 ]
 p_w = [0, 5, 10, 11, 12, 13, 14, 9, 4]
-render_scenario(axs[1, 1], "4. Demo B: Multi-Hazard Warehouse Routing", "Navigates 5x3 grid completely avoiding chemical spills 2 & 7",
-                st_w, ed_w, [2, 7], p_w, 0, 4, (-0.5, 4.5), (-0.6, 2.7))
+render_scenario(axs[1, 1], "Scenario 4 — Multi-Hazard Grid Routing (Warehouse Demo)",
+                "Uniform grid cost c=1.0  |  Safely bypasses Spills 2 & 7: 0->5->10->11->12->13->14->9->4",
+                st_w, ed_w, [2, 7], p_w, 0, 4, (-0.8, 6.8), (-0.6, 3.4), show_all_edge_costs=False)
 
-fig.suptitle('Safe Semantic Planner — Solution Paths & Replanning Trajectories', fontsize=13, fontweight='bold', y=0.98)
+fig.suptitle('Safe Semantic Planner — Visual Path Trajectories & Dynamic Replanning', fontsize=13, fontweight='bold', y=0.98)
 plt.savefig('docs/images/planner_scenarios.png', dpi=300, facecolor='#ffffff')
 plt.close()
 print("Saved: docs/images/planner_scenarios.png")
