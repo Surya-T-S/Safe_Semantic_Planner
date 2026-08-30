@@ -1,6 +1,7 @@
 # Safe Semantic Planner
 
 **Author:** Surya T S  
+**University Registration Number:**TCR24CS069
 **Course:** PCCST503 (Machine Learning)  
 **Algorithm:** D* Lite (Incremental Heuristic Search)  
 **Language:** Modern C++ (C++14)  
@@ -37,9 +38,27 @@
 # 3. Run full console demonstration (TC1-TC6 + 4 real-world scenarios)
 .\build\safe_planner.exe
 
-# 4. Launch interactive visual demonstration in browser
+# 4. Launch interactive visual demonstration in browser (Demonstration only !)
 start demo\index.html
 ```
+
+---
+
+## Experimental Results & Benchmark Analysis
+
+![Experimental Results](docs/images/benchmark_metrics.png)
+
+---
+
+## Visual Planning & Replanning Scenarios
+
+![Planner Scenarios](docs/images/planner_scenarios.png)
+
+---
+
+## System Architecture
+
+![System Architecture](docs/images/system_architecture.png)
 
 ---
 
@@ -51,5 +70,7 @@ Safe_Semantic_Planner/
 ├── src/                     Core planner algorithms & main demo runner
 ├── tests/                   14-point automated test suite
 ├── demo/                    Interactive HTML5/Canvas visualization
-└── docs/                    Technical design report & user manual
+├── docs/                    Technical design report, user manual & diagrams
+│   └── images/              High-resolution benchmark and scenario figures
+└── scripts/                 Plot generation scripts
 ```

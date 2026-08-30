@@ -485,6 +485,8 @@ This is truly incremental — only affected nodes are re-expanded.
 
 ## 11. Software Architecture
 
+![System Architecture](images/system_architecture.png)
+
 ### 11.1 Class Diagram
 
 ```
@@ -735,7 +737,13 @@ X(2) is a bad state. Both paths have equal cost.
 
 ---
 
-### 14.7 Summary Table
+### 14.7 Experimental Benchmark Results & Scenarios
+
+![Benchmark Metrics](images/benchmark_metrics.png)
+
+![Planner Scenarios](images/planner_scenarios.png)
+
+### 14.8 Summary Table
 
 | Test | Goal | Bad Visited | Cost | Safety | Explored | Status |
 |------|------|-------------|------|--------|----------|--------|
