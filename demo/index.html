@@ -453,9 +453,9 @@ const TC = [
         {from:8,to:13,cost:1,avail:true},{from:9,to:14,cost:1,avail:true},
         {from:8,to:3,cost:1,avail:true},{from:14,to:9,cost:1,avail:true},
       ],
-      bad: [2,7], path: [0,5,10,11,12,13,8,3,4],
-      metrics: {success:true, cost:"8.00", safety:"1.0000", explored:9},
-      explain: "The robot avoids BOTH chemical spills by going down to the bottom row, across, then back up. The path is longer but completely safe. Zero bad states visited."
+      bad: [2,7], path: [0,5,10,11,12,13,14,9,4],
+      metrics: {success:true, cost:"8.00", safety:"1.0000", explored:12},
+      explain: "The robot avoids BOTH chemical spills by routing along the bottom perimeter (0\u21925\u219210\u219211\u219212\u219213\u219214\u21929\u21924). The path is longer (cost=8.0) but completely safe. Zero bad states visited."
     }]
   },
   { name: "C: Delivery Route",
@@ -579,8 +579,24 @@ const TC = [
 ];
 
 let currentTC = 0, currentPhase = 0, animProgress = 0, animId = null;
+let hoveredState = null, hoveredEdge = null;
+
+function setupCanvas() {
+    const canvas = document.getElementById("graphCanvas");
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = 800 * dpr;
+    canvas.height = 520 * dpr;
+    canvas.style.width = "100%";
+    canvas.style.height = "520px";
+    const ctx = canvas.getContext("2d");
+    ctx.setTransform(1, 0, 0, 1, 0, 0); // reset
+    ctx.scale(dpr, dpr);
+}
 
 function init() {
+    setupCanvas();
+    window.addEventListener("resize", () => { setupCanvas(); render(); });
+
     const nav = document.getElementById("navBar");
     TC.forEach((tc, i) => {
         const btn = document.createElement("button");
@@ -589,7 +605,48 @@ function init() {
         btn.id = "nav" + i;
         nav.appendChild(btn);
     });
+
+    const canvas = document.getElementById("graphCanvas");
+    canvas.addEventListener("mousemove", onCanvasMouseMove);
+    canvas.addEventListener("mouseleave", () => { hoveredState = null; hoveredEdge = null; });
+
+    window.addEventListener("keydown", onKeyDown);
+
     selectTC(0);
+}
+
+function onKeyDown(e) {
+    if (e.key === "ArrowRight") {
+        selectTC((currentTC + 1) % TC.length);
+    } else if (e.key === "ArrowLeft") {
+        selectTC((currentTC - 1 + TC.length) % TC.length);
+    } else if (e.key === "ArrowDown" || e.key === "ArrowUp" || e.key === " ") {
+        const tc = TC[currentTC];
+        if (tc.phases.length > 1) {
+            e.preventDefault();
+            selectPhase((currentPhase + 1) % tc.phases.length);
+        }
+    }
+}
+
+function onCanvasMouseMove(e) {
+    const canvas = document.getElementById("graphCanvas");
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = 800 / rect.width;
+    const scaleY = 520 / rect.height;
+    const mx = (e.clientX - rect.left) * scaleX;
+    const my = (e.clientY - rect.top) * scaleY;
+
+    const tc = TC[currentTC], ph = tc.phases[currentPhase];
+    let foundState = null;
+    for (const s of ph.states) {
+        const dx = s.x - mx, dy = s.y - my;
+        if (Math.sqrt(dx*dx + dy*dy) <= 28) {
+            foundState = s;
+            break;
+        }
+    }
+    hoveredState = foundState;
 }
 
 function selectTC(idx) {
@@ -640,7 +697,7 @@ function ease(t) { return t < 0.5 ? 2*t*t : -1+(4-2*t)*t; }
 
 function render() {
     const tc = TC[currentTC], ph = tc.phases[currentPhase];
-    document.getElementById("canvasTitle").textContent = tc.name;
+    document.getElementById("canvasTitle").textContent = tc.name + " (" + ph.label + ")";
     document.getElementById("tcTitle").textContent = tc.name;
     document.getElementById("tcDesc").textContent = tc.desc;
     document.getElementById("tcExplain").textContent = ph.explain;
@@ -653,8 +710,13 @@ function render() {
     document.getElementById("mExplored").textContent = ph.metrics.explored;
 
     const canvas = document.getElementById("graphCanvas");
+    const dpr = window.devicePixelRatio || 1;
     const ctx = canvas.getContext("2d");
+    
+    ctx.save();
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.scale(dpr, dpr);
 
     const pathEdges = new Set();
     for (let i = 0; i < ph.path.length - 1; i++) pathEdges.add(ph.path[i] + "->" + ph.path[i+1]);
@@ -674,13 +736,16 @@ function render() {
         const isOnPath = ph.path.includes(s.id);
         const idx = ph.path.indexOf(s.id);
         const np = isOnPath ? ease(Math.min(1, animProgress * ph.path.length - idx * 0.7)) : 1;
-        drawState(ctx, s, isBad, isOnPath, Math.max(0, np));
+        const isHovered = (hoveredState && hoveredState.id === s.id);
+        drawState(ctx, s, isBad, isOnPath, Math.max(0, np), isHovered);
     });
 
     // Draw continuous moving dot along the path
     if (ph.path && ph.path.length > 1) {
         drawMovingDot(ctx, ph);
     }
+
+    ctx.restore();
 }
 
 function drawMovingDot(ctx, ph) {
@@ -700,15 +765,20 @@ function drawMovingDot(ctx, ph) {
     const dotY = from.y + (to.y - from.y) * segT;
 
     ctx.save();
-    // Outer halo
+    // Outer glowing halo
     ctx.beginPath();
-    ctx.arc(dotX, dotY, 9, 0, Math.PI * 2);
-    ctx.fillStyle = "rgba(0, 0, 0, 0.15)";
+    ctx.arc(dotX, dotY, 11, 0, Math.PI * 2);
+    ctx.fillStyle = "rgba(0, 0, 0, 0.12)";
+    ctx.fill();
+
+    ctx.beginPath();
+    ctx.arc(dotX, dotY, 7, 0, Math.PI * 2);
+    ctx.fillStyle = "rgba(0, 0, 0, 0.25)";
     ctx.fill();
 
     // Solid core dot
     ctx.beginPath();
-    ctx.arc(dotX, dotY, 5, 0, Math.PI * 2);
+    ctx.arc(dotX, dotY, 4.5, 0, Math.PI * 2);
     ctx.fillStyle = "#111111";
     ctx.fill();
     ctx.restore();
@@ -718,7 +788,7 @@ function drawEdge(ctx, from, to, edge, isPath) {
     const dx = to.x - from.x, dy = to.y - from.y;
     const len = Math.sqrt(dx*dx + dy*dy);
     const ux = dx/len, uy = dy/len;
-    const r = 26;
+    const r = 27;
     const x1 = from.x + ux*r, y1 = from.y + uy*r;
     const x2 = to.x - ux*r, y2 = to.y - uy*r;
 
@@ -728,105 +798,121 @@ function drawEdge(ctx, from, to, edge, isPath) {
     if (!edge.avail) {
         ctx.setLineDash([6, 5]);
         ctx.strokeStyle = "#bbb";
-        ctx.lineWidth = 1.5;
+        ctx.lineWidth = 1.6;
         ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
     } else if (edge.shortcut) {
         ctx.setLineDash([6, 4]);
         ctx.strokeStyle = isPath ? "#111" : "#999";
-        ctx.lineWidth = isPath ? 2.5 : 1.5;
+        ctx.lineWidth = isPath ? 2.6 : 1.6;
         ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
     } else if (isPath) {
-        // Grey base
-        ctx.strokeStyle = "#ddd"; ctx.lineWidth = 1.5;
+        // Grey base line
+        ctx.strokeStyle = "#e0e0e0"; ctx.lineWidth = 1.6;
         ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
-        // Black path
+        // Solid black active path
         const p = ease(animProgress);
         ctx.beginPath();
-        ctx.strokeStyle = "#111"; ctx.lineWidth = 2.5;
+        ctx.strokeStyle = "#111"; ctx.lineWidth = 2.8;
         ctx.moveTo(x1, y1);
         ctx.lineTo(x1 + (x2-x1)*p, y1 + (y2-y1)*p);
         ctx.stroke();
     } else {
-        ctx.strokeStyle = "#ddd"; ctx.lineWidth = 1.5;
+        ctx.strokeStyle = "#ddd"; ctx.lineWidth = 1.4;
         ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
     }
     ctx.setLineDash([]);
 
     // Arrowhead
-    const angle = Math.atan2(y2-y1, x2-x1), sz = 9;
+    const angle = Math.atan2(y2-y1, x2-x1), sz = 9.5;
     ctx.beginPath();
     ctx.moveTo(x2, y2);
     ctx.lineTo(x2 - sz*Math.cos(angle-0.35), y2 - sz*Math.sin(angle-0.35));
     ctx.lineTo(x2 - sz*Math.cos(angle+0.35), y2 - sz*Math.sin(angle+0.35));
     ctx.closePath();
-    ctx.fillStyle = !edge.avail ? "#ccc" : isPath ? "#111" : "#ddd";
+    ctx.fillStyle = !edge.avail ? "#ccc" : isPath ? "#111" : "#bbb";
     ctx.fill();
 
-    // Cost label
+    // Cost pill badge
     const mx = (x1+x2)/2, my = (y1+y2)/2;
-    const ox = -uy*15, oy = ux*15;
+    const ox = -uy*14, oy = ux*14;
+    const txt = "c=" + edge.cost;
+    
     ctx.font = "11px 'Segoe UI', sans-serif";
     ctx.textAlign = "center";
-    ctx.fillStyle = "#888";
-    ctx.fillText("c=" + edge.cost, mx+ox, my+oy);
+    ctx.textBaseline = "middle";
+
+    // Pill background
+    const tw = ctx.measureText(txt).width + 8;
+    ctx.fillStyle = "rgba(255, 255, 255, 0.92)";
+    ctx.fillRect(mx + ox - tw/2, my + oy - 8, tw, 16);
+    ctx.strokeStyle = "#e5e5e5";
+    ctx.lineWidth = 0.8;
+    ctx.strokeRect(mx + ox - tw/2, my + oy - 8, tw, 16);
+
+    ctx.fillStyle = isPath ? "#111" : "#777";
+    ctx.fillText(txt, mx+ox, my+oy);
+
     if (!edge.avail) {
-        ctx.fillStyle = "#aaa";
-        ctx.fillText("\u2718 disabled", mx+ox, my+oy+13);
+        ctx.fillStyle = "#888";
+        ctx.font = "bold 10px 'Segoe UI', sans-serif";
+        ctx.fillText("\u2718 disabled", mx+ox, my+oy+14);
     }
     if (edge.shortcut) {
-        ctx.fillText("(shortcut)", mx+ox, my+oy+13);
+        ctx.fillStyle = "#555";
+        ctx.font = "italic 10px 'Segoe UI', sans-serif";
+        ctx.fillText("(shortcut)", mx+ox, my+oy+14);
     }
     ctx.restore();
 }
 
-function drawState(ctx, st, isBad, isOnPath, prog) {
-    const r = 26, sc = 0.6 + 0.4*prog;
+function drawState(ctx, st, isBad, isOnPath, prog, isHovered) {
+    const r = 26, sc = (0.6 + 0.4*prog) * (isHovered ? 1.1 : 1.0);
     ctx.save();
     ctx.translate(st.x, st.y);
     ctx.scale(sc, sc);
 
     // Bad state danger zone
     if (isBad) {
-        ctx.beginPath(); ctx.arc(0, 0, r+28, 0, Math.PI*2);
-        ctx.fillStyle = "rgba(0,0,0,0.03)"; ctx.fill();
-        ctx.beginPath(); ctx.arc(0, 0, r+28, 0, Math.PI*2);
-        ctx.strokeStyle = "#ccc"; ctx.lineWidth = 1; ctx.setLineDash([4,4]); ctx.stroke(); ctx.setLineDash([]);
+        ctx.beginPath(); ctx.arc(0, 0, r+26, 0, Math.PI*2);
+        ctx.fillStyle = "rgba(0,0,0,0.04)"; ctx.fill();
+        ctx.beginPath(); ctx.arc(0, 0, r+26, 0, Math.PI*2);
+        ctx.strokeStyle = "#aaa"; ctx.lineWidth = 1.2; ctx.setLineDash([4,4]); ctx.stroke(); ctx.setLineDash([]);
     }
 
-    // Circle
+    // Node Circle
     ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI*2);
     const type = isBad ? "bad" : st.type;
 
     if (type === "start") {
         ctx.fillStyle = "#111"; ctx.fill();
-        ctx.strokeStyle = "#111"; ctx.lineWidth = 2; ctx.stroke();
+        ctx.strokeStyle = "#111"; ctx.lineWidth = 2.5; ctx.stroke();
         ctx.fillStyle = "#fff";
     } else if (type === "goal") {
         ctx.fillStyle = "#fff"; ctx.fill();
-        ctx.strokeStyle = "#111"; ctx.lineWidth = 3; ctx.stroke();
-        // Double circle for goal
+        ctx.strokeStyle = "#111"; ctx.lineWidth = 2.8; ctx.stroke();
+        // Double inner circle for goal
         ctx.beginPath(); ctx.arc(0, 0, r-5, 0, Math.PI*2);
-        ctx.strokeStyle = "#111"; ctx.lineWidth = 1.5; ctx.stroke();
+        ctx.strokeStyle = "#111"; ctx.lineWidth = 1.4; ctx.stroke();
         ctx.fillStyle = "#111";
     } else if (type === "bad") {
         ctx.fillStyle = "#eee"; ctx.fill();
-        ctx.strokeStyle = "#999"; ctx.lineWidth = 2; ctx.stroke();
-        ctx.fillStyle = "#999";
+        ctx.strokeStyle = "#777"; ctx.lineWidth = 2; ctx.stroke();
+        ctx.fillStyle = "#777";
     } else {
-        ctx.fillStyle = isOnPath ? "#f5f5f5" : "#fff"; ctx.fill();
-        ctx.strokeStyle = isOnPath ? "#111" : "#999";
-        ctx.lineWidth = isOnPath ? 2.5 : 1.5; ctx.stroke();
+        ctx.fillStyle = isOnPath ? "#f8f8f8" : "#fff"; ctx.fill();
+        ctx.strokeStyle = isOnPath ? "#111" : "#aaa";
+        ctx.lineWidth = isOnPath ? 2.5 : 1.4; ctx.stroke();
         ctx.fillStyle = "#111";
     }
 
     // Label
-    ctx.font = "bold 15px 'Segoe UI', sans-serif";
+    ctx.font = "bold 14px 'Segoe UI', sans-serif";
     ctx.textAlign = "center"; ctx.textBaseline = "middle";
     ctx.fillText(st.name, 0, 0);
 
-    // ID
+    // ID Badge
     ctx.font = "10px 'Segoe UI', sans-serif";
-    ctx.fillStyle = "#999";
+    ctx.fillStyle = "#888";
     ctx.fillText("id=" + st.id, 0, r + 14);
 
     ctx.restore();
