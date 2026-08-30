@@ -3,6 +3,7 @@
 ## PCCST503 Machine Learning — Assignment
 
 **Author:** Surya T S  
+**University Registration Number:** TCR24CS069  
 **Algorithm:** D* Lite (Koenig & Likhachev, 2002)  
 **Language:** C++14  
 **Date:** August 2026
@@ -228,24 +229,25 @@ The heuristic h(a, b) estimates the cost from state a to state b. For D\* Lite (
 ### Formula
 
 ```
-h(a, b) = ||a.embedding - b.embedding||_2 = sqrt(sum_i (a_i - b_i)^2)
+h(a, b) = beta * ||a.embedding - b.embedding||_2 = beta * sqrt(sum_i (a_i - b_i)^2)
 ```
 
-This is the standard Euclidean distance in R^d.
+This is the Euclidean distance in R^d scaled by the cost weight $\beta$.
 
 ### Properties
 
-1. **Admissibility**: The Euclidean distance never overestimates the true path cost, because:
-   - Transition costs are non-negative
-   - The straight-line distance is always <= any path distance in Euclidean space
+1. **Admissibility**: The scaled Euclidean distance never overestimates the true composite path cost, because:
+   - Base transition costs satisfy $c \ge \text{dist}$ and $\beta > 0$
+   - Penalty terms (proximity $\gamma/D_{\min}$ and unreliability $\delta(1-R)$) are strictly non-negative additions
+   - Therefore, $\beta \cdot \text{dist}(a, b)$ is a guaranteed lower bound on the optimal composite cost.
 
 2. **Consistency (Monotonicity)**: For any states a, b, c:
    ```
-   h(a, c) <= h(a, b) + cost(b, c)
+   h(a, c) <= h(a, b) + cost_eff(b, c)
    ```
    This follows from the triangle inequality of Euclidean distance.
 
-3. **Dimension-agnostic**: Works for any d without modification.
+3. **Dimension-agnostic**: Works for any dimension $d$ without modification.
 
 These properties guarantee that D\* Lite will produce optimal paths.
 
@@ -280,7 +282,7 @@ Space: O(|S|)
 
 Safety is integrated at **two levels**:
 
-1. **Edge-level**: The effective cost of each transition includes a safety distance term. Edges leading to states near bad states have higher effective cost.
+1. **Edge-level**: The effective cost of each transition includes a proximity penalty term $\gamma / D_{\min}$. Edges leading to states near bad states receive higher penalty.
 
 2. **Path-level**: The `PlanningResult::safetyScore` reports the minimum safety distance along the entire computed path, giving a global measure of how "safe" the path is.
 
@@ -296,21 +298,21 @@ Bad states are **strictly forbidden** (not just penalized). This is enforced by:
 
 ### 8.1 Composite Edge Cost
 
-The four objectives are combined into a single scalar edge cost:
+The four objectives are combined into an additive composite edge cost:
 
 ```
-effectiveCost(t) = beta * t.cost - gamma * D_min(t.to) - delta * t.reliability
+effectiveCost(t) = beta * t.cost + gamma * (1.0 / D_min(t.to)) + delta * (1.0 - t.reliability)
 ```
 
 Where:
-- `beta` (default 1.0): Weight on transition cost. Higher = penalize cost more.
-- `gamma` (default 0.5): Weight on safety distance. Higher = prefer states farther from bad states.
-- `delta` (default 0.3): Weight on reliability. Higher = prefer more reliable transitions.
+- `beta` (default 1.0): Weight on transition cost. Higher = penalize high traversal cost.
+- `gamma` (default 0.5): Weight on hazard proximity penalty ($1/D_{\min}$). Higher = strongly avoid routes passing close to bad states.
+- `delta` (default 0.3): Weight on unreliability ($1 - R$). Higher = prefer reliable transitions.
 
 ### 8.2 Constraints on Edge Cost
 
-- **Minimum value clamping**: The effective cost is clamped to epsilon = 10^-6 to ensure strictly positive edge weights, which is required for D\* Lite's correctness.
-- **Infinity for forbidden states**: If `t.to` is a bad state or `t.available` is false, the effective cost is +infinity.
+- **Strict Positivity**: The effective cost is clamped to $\epsilon = 10^{-6}$ to ensure strictly positive edge weights, satisfying D\* Lite non-negative weight requirements.
+- **Infinity for forbidden states**: If `t.to` is a bad state or `t.available` is false, the effective cost is $+\infty$.
 
 ### 8.3 Why This Approach Works
 
